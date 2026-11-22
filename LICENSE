@@ -1,0 +1,33 @@
+Copyright (c) [2026] [Глазов Андрей / JunDevPy]. Все права защищены / All rights reserved.
+
+================================================================================
+РУССКАЯ ВЕРСИЯ (основана на MIT License + Commons Clause)
+================================================================================
+
+1. Предоставление прав
+Настоящим бесплатно предоставляется разрешение любому лицу, получившему копию данного программного обеспечения и сопутствующей документации (далее — «ПО»), использовать, копировать, изменять, объединять и публиковать ПО при соблюдении следующих условий:
+
+2. Обязательное указание авторства
+Уведомление об авторском праве, текст данной лицензии, а также явное указание автора оригинального ПО ([Глазов Андрей / JunDevPy] и ссылка на оригинал: [https://github.com/JunDevPy/debri-toolkit]) должны быть включены во все копии или значимые части ПО, а также в интерфейс, документацию или раздел «О программе» любых бесплатных или платных систем и программ, в которых оно используется.
+
+3. Запрет на продажу и перепродажу (Commons Clause)
+Без предварительного письменного разрешения правообладателя строго запрещается продавать, перепродавать, сдавать в аренду, сублицензировать или иным образом распространять за плату (прямо или косвенно) само ПО, его модифицированные версии, а также любые продукты или услуги, чья основная ценность или функциональность напрямую основаны на данном ПО. Право на продажу принадлежит исключительно правообладателю.
+
+4. Отказ от гарантий
+ПО ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ, ЯВНЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ. НИ В КАКОМ СЛУЧАЕ АВТОР ИЛИ ПРАВООБЛАДАТЕЛЬ НЕ НЕСЕТ ОТВЕТСТВЕННОСТИ ЗА ЛЮБЫЕ ПРЕТЕНЗИИ, УБЫТКИ ИЛИ ИНУЮ ОТВЕТСТВЕННОСТЬ, ВОЗНИКШИЕ В СВЯЗИ С ИСПОЛЬЗОВАНИЕМ ПО.
+
+================================================================================
+ENGLISH VERSION (based on MIT License + Commons Clause)
+================================================================================
+
+1. Grant of Rights
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to use, copy, modify, merge, and publish the Software, subject to the following conditions:
+
+2. Mandatory Attribution
+The above copyright notice, this permission notice, and explicit attribution to the original author ([Glazov Andrew / JunDevPy] and link to the original: [https://github.com/JunDevPy/debri-toolkit]) shall be included in all copies or substantial portions of the Software, as well as in the user interface, documentation, or "About" section of any free or commercial systems and programs in which it is used.
+
+3. Prohibition of Sale and Resale (Commons Clause)
+Without prior written permission from the copyright holder, it is strictly prohibited to sell, resell, lease, sublicense, or otherwise distribute for a fee (directly or indirectly) the Software itself, its modified versions, or any products or services whose primary value or functionality is directly based on the Software. The right to sell belongs exclusively to the copyright holder.
+
+4. Disclaimer of Warranty
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
