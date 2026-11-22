@@ -126,9 +126,9 @@ LOG="$OUT_DIR/20-integrity.log"
   echo
 
   echo "=== LD_PRELOAD / LD_AUDIT GREP ==="
-  grep -RniE 'LD_PRELOAD|LD_AUDIT' \
-    /etc /usr/lib/systemd /run /usr/local/etc 2>/dev/null \
-    | head -n 300 || true
+  find /etc /usr/lib/systemd /run -xdev -type f -print0 2>/dev/null \
+    | xargs -0 -r grep -HniE 'LD_PRELOAD|LD_AUDIT' 2>/dev/null \
+    | head -n 100 || true
   echo
 
   echo "=== CRON FILES ==="
@@ -142,8 +142,9 @@ LOG="$OUT_DIR/20-integrity.log"
   echo
 
   echo "=== SYSTEMD SUSPICIOUS PATTERNS ==="
-  grep -RniE 'ExecStart.*(tmp|dev/shm|var/tmp)|LD_PRELOAD|curl|wget|base64' \
-    /etc/systemd /usr/lib/systemd /run/systemd /usr/local/lib/systemd 2>/dev/null \
+  find /etc/systemd /usr/lib/systemd /run/systemd /usr/local/lib/systemd \
+    -xdev -type f -print0 2>/dev/null \
+    | xargs -0 -r grep -HniE 'ExecStart.*(tmp|dev/shm|var/tmp)|LD_PRELOAD|curl|wget|base64' 2>/dev/null \
     | head -n 500 || true
   echo
 
@@ -188,7 +189,7 @@ LOG="$OUT_DIR/20-integrity.log"
   echo
 
   echo "=== JOURNAL VERIFY ==="
-  journalctl --verify || true
+  timeout -s TERM 300 journalctl --verify || true
 
 } 2>&1 | tee "$LOG"
 
