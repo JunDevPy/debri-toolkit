@@ -137,7 +137,25 @@ run_script() {
   fi
 
   ensure_run
+
+  echo
+  echo "[*] Отдельная проверка: $script_name"
+  echo "[*] Каталог запуска: $IR_RUN_DIR"
+  echo
+
   bash "$script_path"
+  local rc=$?
+
+  echo
+  if [[ $rc -eq 0 ]]; then
+    echo "[*] Завершено: $script_name"
+  else
+    echo "[!] Завершено с ошибкой: $script_name (rc=$rc)"
+  fi
+
+  echo "[*] Каталог: $IR_RUN_DIR"
+
+  return $rc
 }
 
 run_all() {
@@ -153,23 +171,42 @@ run_all() {
     50_ir_network.sh
   )
 
+  local total=${#scripts[@]}
+  local i=0
   local s
+  local rc
+  local start_pct
+  local end_pct
+
+  echo
+  progress_line 0 0 "$total" "Начинаем проверку. Всего шагов: $total"
 
   for s in "${scripts[@]}"; do
+    i=$((i + 1))
+
+    start_pct=$(( (i - 1) * 100 / total ))
+    end_pct=$(( i * 100 / total ))
+
     echo
-    echo "=== Running $s ==="
+    progress_line "$start_pct" "$i" "$total" "Запуск: $s"
 
     if [[ ! -f "$SCRIPT_DIR/$s" ]]; then
-      echo "[!] Скрипт не найден: $SCRIPT_DIR/$s"
+      progress_line "$start_pct" "$i" "$total" "ПРОПУСК: $s не найден"
       continue
     fi
 
     bash "$SCRIPT_DIR/$s"
+    rc=$?
+
+    if [[ $rc -eq 0 ]]; then
+      progress_line "$end_pct" "$i" "$total" "Завершено: $s"
+    else
+      progress_line "$end_pct" "$i" "$total" "Завершено с ошибкой: $s (rc=$rc)"
+    fi
   done
 
   echo
-  echo "[+] Все диагностические проверки завершены."
-  echo "[+] Каталог: $IR_RUN_DIR"
+  progress_line 100 "$total" "$total" "Все проверки завершены. Каталог: $IR_RUN_DIR"
 }
 
 run_full() {
@@ -237,6 +274,22 @@ pack_report() {
 
 show_latest() {
   readlink -f "$IR_DIR/latest" 2>/dev/null || echo "[!] latest не найден"
+}
+
+progress_line() {
+  local pct="$1"
+  local current="$2"
+  local total="$3"
+  local msg="$4"
+
+  local line
+  line=$(printf '[%3d%%] [%d/%d] %s' "$pct" "$current" "$total" "$msg")
+
+  echo "$line"
+
+  if [[ -n "${IR_RUN_DIR:-}" && -d "$IR_RUN_DIR" ]]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $line" >> "$IR_RUN_DIR/progress.log"
+  fi
 }
 
 interactive_menu() {
