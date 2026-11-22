@@ -37,6 +37,28 @@ unset IR_RUN_DIR
 mkdir -p "$IR_DIR"
 chmod 700 "$IR_DIR"
 
+# =========================================================================
+# Функция вывода прогресса (определена ДО функций, которые её вызывают)
+# =========================================================================
+progress_line() {
+  local pct="$1"
+  local current="$2"
+  local total="$3"
+  local msg="$4"
+
+  local line
+  line=$(printf '[%3d%%] [%d/%d] %s' "$pct" "$current" "$total" "$msg")
+
+  echo "$line"
+
+  if [[ -n "${IR_RUN_DIR:-}" && -d "$IR_RUN_DIR" ]]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $line" >> "$IR_RUN_DIR/progress.log"
+  fi
+}
+
+# =========================================================================
+# usage / help
+# =========================================================================
 usage() {
   cat <<'EOF'
 Использование:
@@ -78,7 +100,10 @@ usage() {
 
 Сервисные команды:
 
+  summarize           Сформировать краткую сводку (99-summary.txt)
   pack                Упаковать последний отчёт
+  export              Скопировать последний отчёт в домашнюю папку и поправить права
+  export <user> [<dir>]  Экспорт отчёта конкретному пользователю / в указанный каталог
   latest              Показать каталог последнего запуска
   help                Справка
 
@@ -103,7 +128,10 @@ usage() {
   sudo ./ir_check.sh anomalies
   sudo ./ir_check.sh ssh
   sudo ./ir_check.sh audit-ssh
+  sudo ./ir_check.sh summarize
   sudo ./ir_check.sh pack
+  sudo ./ir_check.sh export
+  sudo ./ir_check.sh export antonis /home/antonis/Reports
 
   sudo ./ir_check.sh cleanup-packages
   sudo ./ir_check.sh cleanup-audit
@@ -112,6 +140,9 @@ usage() {
 EOF
 }
 
+# =========================================================================
+# Управление запуском
+# =========================================================================
 new_run() {
   local run_dir
   run_dir="$IR_DIR/run_$(date +%Y%m%d-%H%M%S)"
@@ -158,6 +189,9 @@ run_script() {
   return $rc
 }
 
+# =========================================================================
+# Основные прогонные функции
+# =========================================================================
 run_all() {
   new_run
 
@@ -230,6 +264,9 @@ run_full_scanners() {
   run_script 60_ir_scanners.sh
 }
 
+# =========================================================================
+# SSH audit / SSH audit rules
+# =========================================================================
 run_audit_ssh() {
   local persist_flag="${1:-}"
   local script_path="$SCRIPT_DIR/80_ir_audit_ssh_rules.sh"
@@ -252,6 +289,9 @@ run_audit_ssh() {
   fi
 }
 
+# =========================================================================
+# Cleanup
+# =========================================================================
 run_cleanup() {
   local script_path="$SCRIPT_DIR/90_ir_cleanup.sh"
 
@@ -263,6 +303,9 @@ run_cleanup() {
   bash "$script_path" "$@"
 }
 
+# =========================================================================
+# Pack / Summarize / Export
+# =========================================================================
 pack_report() {
   if [[ ! -f "$SCRIPT_DIR/70_ir_pack.sh" ]]; then
     echo "[!] Скрипт не найден: $SCRIPT_DIR/70_ir_pack.sh"
@@ -272,26 +315,33 @@ pack_report() {
   bash "$SCRIPT_DIR/70_ir_pack.sh"
 }
 
+summarize_report() {
+  if [[ ! -f "$SCRIPT_DIR/95_ir_summarize.sh" ]]; then
+    echo "[!] Скрипт не найден: $SCRIPT_DIR/95_ir_summarize.sh"
+    return 1
+  fi
+
+  bash "$SCRIPT_DIR/95_ir_summarize.sh" "$@"
+}
+
+export_report() {
+  local script_path="$SCRIPT_DIR/75_ir_export.sh"
+
+  if [[ ! -f "$script_path" ]]; then
+    echo "[!] Скрипт не найден: $script_path"
+    return 1
+  fi
+
+  bash "$script_path" "$@"
+}
+
 show_latest() {
   readlink -f "$IR_DIR/latest" 2>/dev/null || echo "[!] latest не найден"
 }
 
-progress_line() {
-  local pct="$1"
-  local current="$2"
-  local total="$3"
-  local msg="$4"
-
-  local line
-  line=$(printf '[%3d%%] [%d/%d] %s' "$pct" "$current" "$total" "$msg")
-
-  echo "$line"
-
-  if [[ -n "${IR_RUN_DIR:-}" && -d "$IR_RUN_DIR" ]]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') $line" >> "$IR_RUN_DIR/progress.log"
-  fi
-}
-
+# =========================================================================
+# Интерактивное меню
+# =========================================================================
 interactive_menu() {
   while true; do
     cat <<'MENU'
@@ -318,13 +368,15 @@ interactive_menu() {
  14) Добавить правила аудита SSH (runtime)
  15) Добавить правила аудита SSH (persist)
 
- 16) Упаковать последний отчёт
- 17) Показать каталог последнего отчёта
+ 16) Сформировать краткую сводку (99-summary.txt)
+ 17) Упаковать последний отчёт
+ 18) Экспорт отчёта в домашнюю папку
+ 19) Показать каталог последнего отчёта
 
- 18) Очистка: удалить пакеты
- 19) Очистка: удалить правила аудита SSH
- 20) Очистка: удалить логи и состояние
- 21) Очистка: всё (пакеты, аудит, логи)
+ 20) Очистка: удалить пакеты
+ 21) Очистка: удалить правила аудита SSH
+ 22) Очистка: удалить логи и состояние
+ 23) Очистка: всё (пакеты, аудит, логи)
 
   0) Выход
 
@@ -379,21 +431,27 @@ MENU
         run_audit_ssh --persist
         ;;
       16)
-        pack_report
+        summarize_report
         ;;
       17)
-        show_latest
+        pack_report
         ;;
       18)
-        run_cleanup --packages
+        export_report
         ;;
       19)
-        run_cleanup --audit
+        show_latest
         ;;
       20)
-        run_cleanup --logs
+        run_cleanup --packages
         ;;
       21)
+        run_cleanup --audit
+        ;;
+      22)
+        run_cleanup --logs
+        ;;
+      23)
         run_cleanup --all
         ;;
       0)
@@ -410,6 +468,9 @@ MENU
   done
 }
 
+# =========================================================================
+# Главный dispatcher
+# =========================================================================
 CMD="${1:-menu}"
 
 case "$CMD" in
@@ -497,8 +558,18 @@ case "$CMD" in
     run_cleanup --all
     ;;
 
+  summarize|summary)
+    shift
+    summarize_report "$@"
+    ;;
+
   pack)
     pack_report
+    ;;
+
+  export|export-report|copy-report)
+    shift
+    export_report "$@"
     ;;
 
   latest)
