@@ -104,6 +104,7 @@ usage() {
   pack                Упаковать последний отчёт
   export              Скопировать последний отчёт в домашнюю папку и поправить права
   export <user> [<dir>]  Экспорт отчёта конкретному пользователю / в указанный каталог
+  periodic            Быстрая периодическая проверка со сравнением снимков (99_ir_periodic.sh)
   latest              Показать каталог последнего запуска
   help                Справка
 
@@ -132,6 +133,7 @@ usage() {
   sudo ./ir_check.sh pack
   sudo ./ir_check.sh export
   sudo ./ir_check.sh export antonis /home/antonis/Reports
+  sudo ./ir_check.sh periodic
 
   sudo ./ir_check.sh cleanup-packages
   sudo ./ir_check.sh cleanup-audit
@@ -304,7 +306,7 @@ run_cleanup() {
 }
 
 # =========================================================================
-# Pack / Summarize / Export
+# Pack / Summarize / Export / Periodic
 # =========================================================================
 pack_report() {
   if [[ ! -f "$SCRIPT_DIR/70_ir_pack.sh" ]]; then
@@ -326,6 +328,17 @@ summarize_report() {
 
 export_report() {
   local script_path="$SCRIPT_DIR/75_ir_export.sh"
+
+  if [[ ! -f "$script_path" ]]; then
+    echo "[!] Скрипт не найден: $script_path"
+    return 1
+  fi
+
+  bash "$script_path" "$@"
+}
+
+run_periodic() {
+  local script_path="$SCRIPT_DIR/99_ir_periodic.sh"
 
   if [[ ! -f "$script_path" ]]; then
     echo "[!] Скрипт не найден: $script_path"
@@ -377,6 +390,8 @@ interactive_menu() {
  21) Очистка: удалить правила аудита SSH
  22) Очистка: удалить логи и состояние
  23) Очистка: всё (пакеты, аудит, логи)
+
+ 24) Периодическая проверка (быстрая)
 
   0) Выход
 
@@ -453,6 +468,9 @@ MENU
         ;;
       23)
         run_cleanup --all
+        ;;
+      24)
+        run_periodic
         ;;
       0)
         echo "Выход."
@@ -570,6 +588,11 @@ case "$CMD" in
   export|export-report|copy-report)
     shift
     export_report "$@"
+    ;;
+
+  periodic)
+    shift
+    run_periodic "$@"
     ;;
 
   latest)
