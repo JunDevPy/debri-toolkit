@@ -57,7 +57,8 @@ LOG="$OUT_DIR/30-modules.log"
     pkg=""
 
     if [[ -n "$f" && -e "$f" ]]; then
-      pkg=$(dpkg -S "$f" 2>/dev/null || true)
+      rf="$(realpath "$f" 2>/dev/null || echo "$f")"
+      pkg="$(dpkg -S "$rf" 2>/dev/null || true)"
     fi
 
     echo "$m | file=$f | signer=$s | pkg=$pkg"
