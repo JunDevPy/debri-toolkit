@@ -1,6 +1,9 @@
 # DEBRI-Toolkit — набор скриптов для первичной проверки хоста на компрометацию
 
-**DEBRI-Toolkit** — это набор `bash`-скриптов для первичной диагностики возможного взлома хоста на базе **Debian / Ubuntu** и совместимых систем.
+> Copyright (c) 2026 Глазов Андрей / JunDevPy · License: MIT + Commons Clause
+> Original source: <https://github.com/JunDevPy/debri-toolkit>
+
+**DEBRI-Toolkit** — набор `bash`-скриптов для первичной диагностики возможного взлома хоста на базе **Debian / Ubuntu** и совместимых систем.
 
 Расшифровка названия:
 
@@ -20,6 +23,7 @@ DEBRI — Debian/Ubuntu Bash Response & Inspection
 - конфигурацию SSH, включая `AuthorizedKeysCommand`, `TrustedUserCAKeys`, `Match`-блоки;
 - правила аудита изменений SSH-конфигурации;
 - краткую сводку подозрительных находок;
+- периодические снимки состояния системы для мониторинга изменений;
 - итоговый архив с логами для передачи аналитику.
 
 > [!WARNING]
@@ -35,7 +39,7 @@ DEBRI — Debian/Ubuntu Bash Response & Inspection
 
 | Файл | Назначение |
 |---|---|
-| `00_ir_setup.sh` | Установка диагностических пакетов и подготовка каталога логов. Запоминает установленные пакеты в состоянии. |
+| `00_ir_setup.sh` | Установка диагностических пакетов (включая `bsd-mailx`) и подготовка каталога логов. Запоминает установленные пакеты в состоянии. |
 | `10_ir_basic.sh` | Базовый триаж: процессы, сеть, пользователи, сервисы, модули ядра, USB/PCI, `dmesg`. |
 | `15_ir_anomalies.sh` | Расширенные аномалии: `rwxp`-регионы памяти, удалённые `exe`, `memfd`, сетевые namespace, сравнение `/proc/net/tcp` и `ss`. |
 | `16_ir_ssh_audit.sh` | Аудит SSH: эффективный конфиг `sshd -T`, `Match`-контексты, `AuthorizedKeysCommand`, `TrustedUserCAKeys`. Если SSH не установлен, проверка пропускается. |
@@ -48,8 +52,9 @@ DEBRI — Debian/Ubuntu Bash Response & Inspection
 | `75_ir_export.sh` | Экспорт последнего отчёта в домашнюю папку пользователя с исправлением владельца и прав. |
 | `80_ir_audit_ssh_rules.sh` | Добавление правил `auditctl` для отслеживания изменений SSH-конфигурации. Опционально сохраняет правила персистентно. |
 | `90_ir_cleanup.sh` | Очистка: удаление установленных диагностических пакетов, правил аудита, логов и состояния. |
-| `95_ir_summarize.sh` | Формирует краткую сводку подозрительных строк из логов последнего запуска: `99-summary.txt`. |
-| `ir_check.sh` | Контроллер: меню, команды, запуск проверок, прогресс, упаковка и очистка. |
+| `95_ir_summarize.sh` | Формирует краткую сводку подозрительных строк из логов последнего запуска: `99-summary.txt` (включая блоки модулей ядра и UEFI). |
+| `99_ir_periodic.sh` | Периодическая быстрая проверка: снимки состояния (setuid, listeners, UID 0, sudoers, authorized_keys, EFI, preload, модули вне `/lib/modules`) и сравнение с предыдущим снимком. Поднимает ALERTS при изменениях. |
+| `ir_check.sh` | Контроллер: меню, команды, запуск проверок, прогресс, сводка, упаковка, экспорт, периодика и очистка. |
 
 ---
 
@@ -76,20 +81,18 @@ DEBRI — Debian/Ubuntu Bash Response & Inspection
 ### Вариант 1. Клонировать репозиторий
 
 ```bash
-git clone https://github.com/<owner>/<repo>.git
-cd <repo>
+git clone https://github.com/JunDevPy/debri-toolkit.git
+cd debri-toolkit
 chmod +x *.sh
 sudo ./ir_check.sh
 ```
 
-Замените `<owner>` и `<repo>` на реальные значения.
-
 ### Вариант 2. Скопировать скрипты вручную
 
 ```bash
-mkdir -p ~/ir-toolkit
-cp /path/to/scripts/*.sh ~/ir-toolkit/
-cd ~/ir-toolkit
+mkdir -p ~/debri-toolkit
+cp /path/to/scripts/*.sh ~/debri-toolkit/
+cd ~/debri-toolkit
 chmod +x *.sh
 ```
 
@@ -121,7 +124,7 @@ sudo ./ir_check.sh full
 ### 2. Сформировать краткую сводку результатов
 
 ```bash
-sudo ./95_ir_summarize.sh
+sudo ./ir_check.sh summarize
 ```
 
 Будет создан файл:
@@ -136,23 +139,26 @@ sudo ./95_ir_summarize.sh
 sudo ./ir_check.sh pack
 ```
 
-Архив появится в `/root/ir/`, имя будет примерно таким:
-
-```text
-/root/ir/ir_report_YYYYmmdd-HHMMSS.tar.gz
-```
-
-Рядом будет файл контрольной суммы:
-
-```text
-/root/ir/ir_report_YYYYmmdd-HHMMSS.tar.gz.sha256
-```
-
-Проверить контрольную сумму:
+### 4. Скопировать отчёт в домашнюю папку и поправить права
 
 ```bash
-sha256sum -c /root/ir/ir_report_YYYYmmdd-HHMMSS.tar.gz.sha256
+sudo ./ir_check.sh export
 ```
+
+Результат:
+
+```text
+~/ir_report_YYYYmmdd-HHMMSS.tar.gz
+~/ir_report_YYYYmmdd-HHMMSS.tar.gz.sha256
+```
+
+### 5. Включить периодический мониторинг (опционально)
+
+```bash
+sudo ./ir_check.sh periodic
+```
+
+или автоматически через systemd timer (см. `README_FULL.md`, раздел «Периодические проверки»).
 
 ---
 
@@ -164,18 +170,25 @@ sha256sum -c /root/ir/ir_report_YYYYmmdd-HHMMSS.tar.gz.sha256
 | `sudo ./ir_check.sh full` | Установка пакетов + все проверки. |
 | `sudo ./ir_check.sh full-scanners` | Установка пакетов + сканеры + все проверки. |
 | `sudo ./ir_check.sh all` | Все проверки без установки пакетов. |
+| `sudo ./ir_check.sh basic` | Базовая проверка. |
 | `sudo ./ir_check.sh anomalies` | Расширенные аномалии процессов, памяти и сети. |
 | `sudo ./ir_check.sh ssh` | Аудит SSH. |
+| `sudo ./ir_check.sh integrity` | Проверка целостности. |
+| `sudo ./ir_check.sh modules` | Проверка модулей ядра. |
+| `sudo ./ir_check.sh boot` | Проверка boot/UEFI/GRUB. |
+| `sudo ./ir_check.sh network` | Проверка сети. |
+| `sudo ./ir_check.sh scanners` | Запуск сканеров. |
+| `sudo ./ir_check.sh summarize` | Создать краткую сводку `99-summary.txt`. |
+| `sudo ./ir_check.sh pack` | Упаковать последний отчёт. |
+| `sudo ./ir_check.sh export` | Скопировать отчёт в домашнюю папку и исправить права. |
+| `sudo ./ir_check.sh periodic` | Быстрая периодическая проверка со сравнением снимков. |
 | `sudo ./ir_check.sh audit-ssh` | Добавить runtime-правила аудита для SSH. |
 | `sudo ./ir_check.sh audit-ssh-persist` | Добавить правила аудита для SSH и сохранить их. |
-| `sudo ./95_ir_summarize.sh` | Создать краткую сводку `99-summary.txt`. |
-| `sudo ./ir_check.sh pack` | Упаковать последний отчёт. |
-| `sudo ./ir_check.sh latest` | Показать каталог последнего запуска. |
 | `sudo ./ir_check.sh cleanup-packages` | Удалить установленные диагностические пакеты. |
 | `sudo ./ir_check.sh cleanup-audit` | Удалить правила аудита SSH. |
 | `sudo ./ir_check.sh cleanup-logs` | Удалить логи и состояние из `/root/ir`. |
 | `sudo ./ir_check.sh cleanup-all` | Удалить пакеты, правила аудита, логи и состояние. |
-| `sudo ./ir_check.sh export` | Скопировать последний отчёт в домашнюю папку пользователя и исправить права владельца. |
+| `sudo ./ir_check.sh latest` | Показать каталог последнего запуска. |
 
 ---
 
@@ -209,6 +222,23 @@ sha256sum -c /root/ir/ir_report_YYYYmmdd-HHMMSS.tar.gz.sha256
 └── ...
 ```
 
+Периодические проверки хранятся отдельно:
+
+```text
+/root/ir/periodic
+├── periodic_YYYYmmdd-HHMMSS.log
+├── periodic_latest.log -> periodic_YYYYmmdd-HHMMSS.log
+└── snapshots/
+    ├── setuid.list / setuid.prev
+    ├── listeners.list / listeners.prev
+    ├── uid0.list / uid0.prev
+    ├── sudoers.list / sudoers.prev
+    ├── authorized_keys.list / .prev
+    ├── efi_hashes.list / .prev
+    ├── preload.list / .prev
+    └── modules_outside.list / .prev
+```
+
 Анализ лучше начинать с:
 
 ```text
@@ -221,25 +251,17 @@ sha256sum -c /root/ir/ir_report_YYYYmmdd-HHMMSS.tar.gz.sha256
 progress.log
 ```
 
-Затем уже открывать конкретные логи, например:
-
-```text
-20-integrity.log
-30-modules.log
-16-ssh-audit.log
-```
-
 ---
 
 ## Прогресс выполнения
 
-Во время запуска через контроллер рекомендуется использовать вывод прогресса. Он пишет статус в терминал и дублирует его в:
+Во время запуска через контроллер выводится статус в процентах и дублируется в:
 
 ```text
 /root/ir/latest/progress.log
 ```
 
-Пример статуса:
+Пример:
 
 ```text
 [  0%] [0/7] Начинаем проверку. Всего шагов: 7
@@ -252,6 +274,12 @@ progress.log
 
 Прогресс считается по количеству проверочных скриптов, а не по каждой внутренней команде.
 
+Смотреть в реальном времени:
+
+```bash
+tail -f /root/ir/latest/progress.log
+```
+
 ---
 
 ## Очистка после проверки
@@ -263,6 +291,7 @@ progress.log
 >
 > ```bash
 > sudo ./ir_check.sh pack
+> sudo ./ir_check.sh export
 > ```
 
 Посмотреть, что будет сделано:
@@ -271,27 +300,12 @@ progress.log
 sudo ./90_ir_cleanup.sh --dry-run --all
 ```
 
-Удалить пакеты:
+Удалить пакеты / аудит / логи / всё:
 
 ```bash
 sudo ./ir_check.sh cleanup-packages
-```
-
-Удалить правила аудита:
-
-```bash
 sudo ./ir_check.sh cleanup-audit
-```
-
-Удалить логи:
-
-```bash
 sudo ./ir_check.sh cleanup-logs
-```
-
-Удалить всё:
-
-```bash
 sudo ./ir_check.sh cleanup-all
 ```
 
@@ -301,24 +315,24 @@ sudo ./ir_check.sh cleanup-all
 
 В первую очередь обращайте внимание на:
 
-- неизвестные модули ядра;
-- модули, не принадлежащие пакетам;
+- неизвестные модули ядра и модули без владельца пакета;
 - процессы с удалённым `exe`;
 - исполняемые файлы в `/tmp`, `/var/tmp`, `/dev/shm`;
 - чужие `authorized_keys`;
 - неизвестных пользователей с UID 0;
 - странные `setuid`/`setgid` файлы;
-- `LD_PRELOAD`;
-- неизвестные сетевые соединения;
+- `LD_PRELOAD` и `/etc/ld.so.preload`;
+- неизвестные сетевые соединения и новые внешние TCP-листенеры;
 - изменения `sshd_config`, `AuthorizedKeysCommand`, `TrustedUserCAKeys`;
 - неизвестные `.efi`-файлы и записи в `efibootmgr`;
+- строки `[ALERT]` в логах периодических проверок;
 - подозрительные строки в `99-summary.txt`.
 
 ---
 
 ## Подробная документация
 
-Полное техническое описание, разбор логов, сценарии использования, ограничения и действия при инциденте находятся здесь:
+Полное техническое описание, разбор логов, сценарии использования, периодический мониторинг, ограничения и действия при инциденте:
 
 [Полное техническое описание](README_FULL.md)
 
@@ -332,14 +346,17 @@ sudo ./ir_check.sh cleanup-all
 
    ```bash
    sudo ./ir_check.sh pack
-   ```
-2. Экспортируйте отчет в домашнюю директорию
-
-   ```bash
    sudo ./ir_check.sh export
    ```
-3. Скопируйте архив на внешний носитель или доверенный хост.
-4. Отключите машину от сети.
-5. Не вводите на ней важные пароли, ключи и коды 2FA.
-6. Перейдите к офлайн-проверке с Live USB.
-7. При подтверждении компрометации переустановите систему, обновите UEFI/BIOS и замените ключи/пароли.
+
+2. Скопируйте архив на внешний носитель или доверенный хост.
+3. Отключите машину от сети.
+4. Не вводите на ней важные пароли, ключи и коды 2FA.
+5. Перейдите к офлайн-проверке с Live USB.
+6. При подтверждении компрометации переустановите систему, обновите UEFI/BIOS и замените ключи/пароли.
+
+---
+
+## Лицензия
+
+MIT + Commons Clause. Продажа и перепродажа скрипта или его модификаций запрещена всем, кроме правообладателя. При использовании в любых системах обязательно явное указание автора: **Глазов Андрей / JunDevPy**.
