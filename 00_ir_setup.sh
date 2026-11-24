@@ -43,6 +43,7 @@ PKGS=(
   dmidecode
   libcap2-bin
   ca-certificates
+  bsd-mailx
 )
 
 EXTRA=()
